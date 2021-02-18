@@ -13,6 +13,7 @@ from matplotlib.colors import Normalize
 import matplotlib.ticker as ticker    
 from scipy.constants import g, pi
 import xarray as xr
+import copy
    
     
 class WaveTimeSeries:
@@ -102,17 +103,20 @@ class WaveTimeSeries:
     def plot_timeseries(self, parameter = 'Hs', ax = False):
         if not ax:
             fig, ax = plt.subplots()
-        ax = self.wave_data.plot(y = parameter, legend = self.show_legend, ax = ax)
-        ax.set_xlabel('')
-        self.axis_labels(ax, y = parameter)
+        if not(self.wave_data.empty):
+            ax = self.wave_data.plot(y = parameter, legend = self.show_legend, ax = ax)
+            ax.set_xlabel('')
+            self.axis_labels(ax, y = parameter)
         return ax
 
-    def plot_all_timeseries(self):
-        fig, ax = plt.subplots(nrows = 3, ncols = 1)
+    def plot_all_timeseries(self, ax = False):
+        if not np.any(ax):
+            fig, ax = plt.subplots(nrows = 3, ncols = 1)
         self.plot_timeseries(parameter = 'Hs', ax = ax[0])
         self.plot_timeseries(parameter = 'Tp', ax = ax[1])
         self.plot_timeseries(parameter = 'Dir', ax = ax[2])
         plt.tight_layout()
+        return ax
         
     def axis_labels(self, ax, x = False, y = False):
         if x:
@@ -165,6 +169,14 @@ class WaveTimeSeries:
         freq_in_columns = pd.DataFrame({'freq': freq.flatten(), var1: classes_var1.flatten(), var2: classes_var1.flatten()})
         
         return freq, freq_in_columns
+    
+    def cut(self, date_start, date_end, copy_wts = True):
+        if copy_wts:
+            wts = copy.copy(self)
+        else:
+            wts = self
+        wts.wave_data = wts.wave_data.loc[date_start:date_end]
+        return wts
     
     def freq_windrose(self, bin_edges, dir_parameter = 'Dir', parameter = 'Hs', n_dir_bins = None):
         
