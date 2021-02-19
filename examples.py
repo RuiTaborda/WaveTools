@@ -7,10 +7,10 @@ Created on Thu Feb 11 14:36:47 2021
 import wavetimeseries as wts
 import matplotlib.cm as cm
 
-ds = wts.WaveTimeSeries(filename = 'D:\Dados\Ondas\era\era520032021.nc', datafile_type = 'era5')
+ds = wts.WaveTimeSeries(filename = 'D:\Dados\Ondas\era\era520032021.nc', datafile_type = 'era5',  label_style = 'pt')
 
 ds.plot_windrose()
-ds.plot_windrose(parameter = 'Tp', colormap = cm.Blues)
+ds.plot_windrose(parameter = 'Tp', colormap = cm.jet)
 
 
 wts_christina = ds.cut('2014-1-4', '2014-1-8')
