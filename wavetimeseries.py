@@ -125,7 +125,9 @@ class WaveTimeSeries:
         if y:
             units = self.show_label_units * (' ('+ self.wave_labels.loc['units', y]+')')
             ax.set_ylabel(self.wave_labels.loc[self.label_style, y] + units)
-        
+      
+    
+    
     
     def joint_distribution(self, type = 'scatter', x = 'Tm', y = 'Hs', plot_steepness_domains = False):
         if type == 'scatter':
