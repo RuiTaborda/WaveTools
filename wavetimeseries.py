@@ -14,6 +14,9 @@ import matplotlib.ticker as ticker
 from scipy.constants import g, pi
 import xarray as xr
 import copy
+import wavepy as wv
+import scipy.io
+
    
     
 class WaveTimeSeries:
@@ -25,6 +28,7 @@ class WaveTimeSeries:
         self.show_label_units = True
         self.show_legend = False
         self.__init_wave_labels()   
+        self.time_fix = True
         
         #polar plot definitions
         self.n_dir_bins = 16
@@ -33,9 +37,18 @@ class WaveTimeSeries:
         #frequency table
         self.relative_freq = True
         
+        self.breaker_index = 0.78
+        self.breaking = False
+        
+        self.rho = 1025
+        
         self.lat = 39.
         self.long = -9.5
-
+        
+        self.dpi_figures = 300
+        
+        
+   
         for key, value in kwargs.items():
             setattr(self, key, value)
 
@@ -54,8 +67,9 @@ class WaveTimeSeries:
             # swh - significant height of combined wind waves and swell
             # wsp - Wave spectral peakedness 
             wave_data = ds_sel.to_dataframe()
-            wave_data = wave_data.droplevel('expver')
+            #wave_data = wave_data.droplevel('expver')
             wave_data.dropna(inplace = True)
+            
             self.wave_data = wave_data.drop(['latitude', 'longitude'], axis = 1)
             
         elif self.datafile_type == 'netcdf_copernicus':
@@ -75,31 +89,84 @@ class WaveTimeSeries:
             self.wave_data = wave_data.xs(1, level='DEPTH')
                                           
         
-        #normalize wave parameters names
+    #normalize wave parameters names
         colum_names = map(str.lower, list(self.wave_data.columns))
-        colum_names = ['Tm' if x == 'tm' or x=='tz' or x =='tmed' or x == 'mwp' or x == 'vtm02' else x for x in colum_names]
-        colum_names = ['Tp' if x == 'pp1d' or x =='tpeak' or x =='tp' or  x == 'vtpk' else x for x in colum_names]
-        colum_names = ['Hs' if x =='hsig' or x =='swh' or  x == 'hm0' or x == 'hs' or x == 'vhm0' else x for x in colum_names]
-        colum_names = ['Dir' if x == 'dm' or x=='mwd' or x =='Dir' or x == 'DirMed' or x == 'vmdr' else x for x in colum_names]
+        colum_names = ['Tm' if x == 'tm' or x=='tz' or x =='tmed' or x == 'mwp'
+                       or x == 'vtm02' else x for x in colum_names]
+        colum_names = ['Tp' if x == 'pp1d' or x =='tpeak' or x =='tp' or 
+                       x == 'vtpk' or x == 'peak wave period'
+                       else x for x in colum_names]
+        colum_names = ['Tm_sw' if x =='mpts' else x for x in colum_names]
+        colum_names = ['Tm_ww' if x =='mpww' else x for x in colum_names]
+        colum_names = ['Hs' if x =='hsig' or x =='swh' or  x == 'hm0' 
+                       or x == 'hs' or x == 'vhm0'or x=='significant wave height' 
+                       else x for x in colum_names]
+        colum_names = ['Hs_sw' if x =='shts' else x for x in colum_names]
+        colum_names = ['Hs_ww' if x =='shww' else x for x in colum_names]
+        colum_names = ['Dir' if x == 'dm' or x=='mwd' or x =='Dir' or x == 'DirMed' 
+                       or x == 'vmdr' or x=='weighted mean wave direction' 
+                       else x for x in colum_names]
+        colum_names = ['Dir_sw' if x == 'mdts' else x for x in colum_names]
+        colum_names = ['Dir_ww' if x == 'mdww' else x for x in colum_names]
+        colum_names = ['DSp' if x == 'wdw' or x == 'weighted mean spreading width' 
+                       else x for x in colum_names]
+        colum_names = ['DSp_sw' if x == 'dwps' else x for x in colum_names]
+        colum_names = ['DSp_ww' if x == 'dwww' else x for x in colum_names]
         
         self.wave_data.columns = colum_names
        
         
         
     def __init_wave_labels(self):
-        wave_param_names = ['Hs', 'Hrms', 'Tp', 'Tm', 'Dir']
-        wave_param_data = np.array([['Hs', 'Hrms', 'Tp', 'Tm', r'$\ \theta$'],
-                            ['swh', 'hrms', 'pwp', 'mwp', 'mwd'],
-                            ['Hm0', 'Hrms', 'Tp', 'T0', r'$\ \theta$'],
-                            ['significant wave height', 'root-mean-square wave height', 'peak wave period', 'mean wave period', 'mean wave direction'],
-                            ['altura significativa', 'altura média quadrática', 'período de pico', 'período médio', 'direção média']])
-        units = np.array([['m', 'm', 's', 's', u'\u00b0']])
+        wave_param_names = ['Hs', 'Hrms', 'Hs_sw', 'Hs_ww', 'Tp', 'Tm', 'Tm_sw', 'Tm_ww', 'Dir', 'Dir_sw', 'Dir_ww', 'DSp', 'DSp_sw', 'DSp_ww']
+        wave_param_data = np.array([['Hs', 'Hrms', 'Hs_sw', 'Hs_ww', 'Tp', 'Tm', 'Tm_sw', 'Tm_ww', r'$\ \theta$', r'$\ \theta$', r'$\ \theta$','DSp', 'DSp_sw', 'DSp_ww'],
+                            ['swh', 'hrms', 'shts', 'shww', 'pwp', 'pp1d', 'mwd', 'mpts', 'mpww', 'mdts', 'mdww', 'wdw', 'dwps', 'dwww'],
+                            ['Hm0', 'Hrms', 'Hs_sw', 'Hs_ww', 'Tp', 'T0', 'Tm_sw', 'Tm_ww', r'$\ \theta$', r'$\ \theta$', r'$\ \theta$', 'wdw', 'dwps', 'dwww'],
+                            ['significant wave height', 'root-mean-square wave height', 'significant heigth total swell', 'significant heigth wind waves', 'peak wave period', 'mean wave period', 'mean period total swell' , 'mean period wind waves' , 'mean wave direction', 'mean direction total swell', 'mean direction wind waves', 'wave spectral directional width', 'wave spectral directional width total swell', 'wave spectral directional width wind waves'],
+                            ['altura significativa', 'altura média quadrática', 'altura significativa ondulação', 'altura significativa vaga', 'período de pico', 'período médio', 'período médio ondulação', 'período médio vaga' , 'direção média', 'direção média ondulação', 'direção média vaga', 'dispersão direcional das ondas', 'dispersão direcional ondulação', 'dispersão direcional vaga']])
+        units = np.array([['m', 'm', 'm', 'm', 's', 's', 's', 's' , u'\u00b0', u'\u00b0', u'\u00b0', '1', '1', '1']])
         label_type = ['default', 'ERA5', 'spc', 'en' , 'pt', 'units' ]
         
 
         self.wave_labels = pd.DataFrame(data =  np.concatenate([wave_param_data, units]), columns = wave_param_names, index = label_type)
         
-       
+               
+    def dt_f(self, unit = 'h'): #return a scalar if dt is constant
+        dt = np.diff(self.wave_data.index)/np.timedelta64(1, unit)
+        dt_max = np.max(dt)
+        dt_min = np.min(dt)
+        if dt_max == dt_min:
+            return dt_max
+        else:
+            return dt
+    
+    def describe(self):
+        stats = self.wave_data.describe()
+        stats.iloc[1]['Dir'] = self.dir_mean()
+        return stats
+    
+    def dir_mean(self, parameter = 'Dir'):
+        dir = self.wave_data[parameter]
+        x = np.sum(np.cos(np.radians(dir)))
+        y = np.sum(np.sin(np.radians(dir)))
+        dir_m = np.arctan2(y, x) * 180 / np.pi
+        if dir_m < 0: dir_m += 360
+        return dir_m
+
+    def dir_mean_wave_power(self, parameter = 'Dir'):
+        dir = self.wave_data[parameter]
+        x = np.sum(self.wave_power_offshore() * np.cos(np.radians(dir)))
+        y = np.sum(self.wave_power_offshore() * np.sin(np.radians(dir)))
+        dir_m_wp = np.arctan2(y, x) * 180 / np.pi
+        if dir_m_wp < 0: dir_m_wp += 360
+        return dir_m_wp
+
+    
+    def maxima(self, freq = 'Y', parameter = 'Hs', plot = False):
+        hs_max = self.wave_data[parameter].groupby(pd.Grouper(freq = freq)).max()
+        hs_max.index = self.wave_data[parameter].groupby(pd.Grouper(freq = freq)).idxmax()
+        return hs_max
+        
     def plot_timeseries(self, parameter = 'Hs', ax = False):
         if not ax:
             fig, ax = plt.subplots()
@@ -151,6 +218,9 @@ class WaveTimeSeries:
         
         return ax
         
+    def wave_power_offshore(self):
+        return self.rho * g**2 * self.wave_data.Hs * self.wave_data.Tp / (64 * pi)
+    
     def wave_steepness(self, Tm, steepness):
          return steepness * Tm ** 2 * g / (2 * pi)
      
@@ -207,7 +277,7 @@ class WaveTimeSeries:
     
     def plot_windrose(self, dir_parameter = 'Dir', parameter = 'Hs', colormap = None, n_dir_bins = None, bin_edges = None):
         
-        if bin_edges == None:
+        if np.sum(bin_edges) == None:
             bin_edges = np.linspace(0, np.ceil(self.wave_data[parameter].max()), 8)
  
         freq_winrose = self.freq_windrose(bin_edges, dir_parameter, parameter, n_dir_bins)
@@ -242,8 +312,40 @@ class WaveTimeSeries:
         labels = [u"[ {:0.2f} - {:0.2f} [".format(bin_edges[i], bin_edges[i+1]) for i in range(len(bin_centers))]
         ax.legend(handles, labels, fontsize = 'x-small', loc = (1,0), title = self.wave_labels.loc[self.label_style, parameter] + units)
       
-        return 
+        return ax
        
+    def to_break(self, dir_bottom = 0, H_stat = 'Hs', h0 = 500):
+        wts_breaking = copy.deepcopy(self)
+        
+        
+        wave_break_data = np.zeros((self.wave_data['Hs'].shape[0], 3))
+        
+        for i, (H, T, Dir) in enumerate(zip(wts_breaking.wave_data['Hs'], wts_breaking.wave_data['Tp'], wts_breaking.wave_data['Dir'])):
+            w = wv.Wave(H = H, T = T, dir = Dir, dir_bottom = dir_bottom, H_stat = H_stat, h0 = h0)
+            w.break_it()
+          
+            wave_break_data[i, :] = [w.H, w.T, w.dir]
+            
 
 
-
+        wts_breaking.wave_data.Hs = wave_break_data[:,0]
+        wts_breaking.wave_data.Tp = wave_break_data[:,1]
+        wts_breaking.wave_data.Dir = wave_break_data[:,2]
+        wts_breaking.breaking = True
+        
+        return wts_breaking      
+    
+    def ls_drift(self, k = 0.39, dir_bottom = 0, method = 'CERC'):
+        self.rho = 1025
+        #sediment properties
+        rho_s = 2650
+        p = 0.4
+        if self.breaking:
+            c = self.rho * np.sqrt(g) / (16*np.sqrt(self.breaker_index)*(rho_s - self.rho)*(1-p))
+            if method == 'Mil_Homens_et_al':
+                L0 = 1.56 * self.wave_data['Tp']**2
+                k = 1/(2232*(self.wave_data['Hs']/L0) ** 1.45 + 4.505)
+            alpha =  self.wave_data['Dir'] - dir_bottom 
+            return k * c * self.wave_data['Hs']**(5/2.) * np.sin(np.radians(2 * alpha)), alpha
+      
+        
