@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 """
 Created on Sun Jun  7 22:01:46 2020
-
 @author: rui
 """
-
+import math
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -45,6 +44,7 @@ class WaveTimeSeries:
            
         elif self.datafile_type == 'hdf':
            self.wave_data = pd.read_hdf('output.hdf', 'wave_data')
+        
         elif self.datafile_type == 'era5':
             #https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-single-levels?tab=form
             ds = xr.open_dataset(self.filename)
@@ -73,9 +73,39 @@ class WaveTimeSeries:
             xr_wave_data.close()
             
             self.wave_data = wave_data.xs(1, level='DEPTH')
-                                          
+            
+        elif self.datafile_type == 'sonel_hindcast_20CR':
+            # hindcast data from Sonel
+            # https://www.sonel.org/-Waves-.html?lang=en
+            #
+            # Just Hs
+            
+            wave_data = pd.read_table(self.filename, sep='\s+', header=None)
+            time = pd.to_datetime(wave_data.loc[:,0], format ='%Y%m%d%H')
+            wave_data = wave_data.set_index(time)
+            wave_data.index.names = ['time']
+            wave_data = wave_data.drop([0], axis=1)
+            col_name = ['Hs']
+            wave_data.columns = col_name
+            
+            self.wave_data = wave_data
         
         #normalize wave parameters names
+        if self.wave_data.columns.size == 1:
+            
+            print('Data has only Hs variable')
+            
+        else:
+            colum_names = map(str.lower, list(self.wave_data.columns))
+            colum_names = ['Tm' if x == 'tm' or x=='tz' or x =='tmed' or x == 'mwp' or x == 'vtm02' else x for x in colum_names]
+            colum_names = ['Tp' if x == 'pp1d' or x =='tpeak' or x =='tp' or  x == 'vtpk' else x for x in colum_names]
+            colum_names = ['Hs' if x =='hsig' or x =='swh' or  x == 'hm0' or x == 'hs' or x == 'vhm0' else x for x in colum_names]
+            colum_names = ['Dir' if x == 'dm' or x=='mwd' or x =='Dir' or x == 'DirMed' or x == 'vmdr' else x for x in colum_names]
+        
+            self.wave_data.columns = colum_names                                         
+        
+        #normalize wave parameters names
+        
         colum_names = map(str.lower, list(self.wave_data.columns))
         colum_names = ['Tm' if x == 'tm' or x=='tz' or x =='tmed' or x == 'mwp' or x == 'vtm02' else x for x in colum_names]
         colum_names = ['Tp' if x == 'pp1d' or x =='tpeak' or x =='tp' or  x == 'vtpk' else x for x in colum_names]
@@ -243,7 +273,30 @@ class WaveTimeSeries:
         ax.legend(handles, labels, fontsize = 'x-small', loc = (1,0), title = self.wave_labels.loc[self.label_style, parameter] + units)
       
         return 
-       
+    
+    def storm_events(self, Hthreshold, duration):
+        
+        wd = self.wave_data
+        wd['label'] = (~wd['Hs'].ge(Hthreshold)).cumsum()
+        st = wd[wd['Hs']>= Hthreshold]
+        st_count = st.value_counts(st['label'])
 
-
-
+        #duration -  duration of storm in h
+        interval = wd.index.hour[1] - wd.index.hour[0]
+        nevents = int(duration / interval)
+        self.ev = st_count[st_count>= nevents]
+        
+        self.storms = st.loc[st['label'].isin(self.ev.index)]
+        print('storms', self.storms)
+        return
+    
+    def storm_events_num (self):
+        print('number of events = ', self.ev.size)
+    
+    def storm_to_excel (self, name):
+        self.storms.to_excel(name)
+        return
+    
+    
+                                        
+                                       

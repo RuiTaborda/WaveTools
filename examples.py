@@ -7,7 +7,7 @@ Created on Thu Feb 11 14:36:47 2021
 import wavetimeseries as wts
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
-ds = wts.WaveTimeSeries(filename = 'D:\Dados\Ondas\era\era520032021.nc', datafile_type = 'era5',  label_style = 'pt')
+ds = wts.WaveTimeSeries(filename = 'E:\PostDoc\GitHub_Desktop\WaveTools\Ondas\era\era520032021.nc', datafile_type = 'era5',  label_style = 'pt')
 
 ds.plot_windrose()
 ds.plot_windrose(parameter = 'Tp', colormap = cm.jet)
@@ -22,7 +22,7 @@ ax2 = wts_bella.plot_all_timeseries()
 wts_campo = ds.cut('2020-1-19', '2020-1-23')
 ax3 = wts_campo.plot_all_timeseries()
 
-ds =wts.WaveTimeSeries(filename = 'D:/Dados/Ondas/buoy/Naz_IR_TS_MO_6200199.nc', datafile_type = 'netcdf_copernicus', label_style = 'default')
+ds =wts.WaveTimeSeries(filename = 'E:\PostDoc\GitHub_Desktop\WaveTools\Ondas/buoy/Naz_IR_TS_MO_6200199.nc', datafile_type = 'netcdf_copernicus', label_style = 'default')
 
 
 
