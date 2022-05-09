@@ -282,8 +282,8 @@ class WaveTimeSeries:
         st_count = st.value_counts(st['label'])
 
         #duration -  duration of storm in h
-        interval = wd.index.hour[1] - wd.index.hour[0]
-        nevents = int(duration / interval)
+        self.interval = wd.index.hour[1] - wd.index.hour[0]
+        nevents = int(duration / self.interval)
         self.ev = st_count[st_count>= nevents]
         
         self.storms = st.loc[st['label'].isin(self.ev.index)]
@@ -293,9 +293,39 @@ class WaveTimeSeries:
     def storm_events_num (self):
         print('number of events = ', self.ev.size)
     
-    def storm_to_excel (self, name):
+    def storm_data_to_excel (self, name):
         self.storms.to_excel(name)
         return
+    
+    def storm_stats (self):
+        start = self.storms.drop_duplicates('label')
+        length = (self.storms.groupby(['label']).size()) * self.interval
+        start = start.copy()
+        start.index.names = ['start_time']
+        start.loc[:,'duration'] = list(length)
+        start.loc[:, 'Hs_max'] = list(self.storms.groupby(['label']).max(['Hs'])['Hs'])
+        start.loc[:, 'Hs_mean'] = list(self.storms.groupby(['label']).mean(['Hs'])['Hs'])
+        
+        if self.storms.columns.size == 2:
+            print('Data has only Hs variable')
+            self.start = start.drop(['label'], axis=1)
+            print(self.start)
+            
+        else:
+            start.loc[:, 'Tp_max'] = list(self.storms.groupby(['label']).max(['Tp'])['Tp'])
+            start.loc[:, 'TP_mean'] = list(self.storms.groupby(['label']).mean(['Tp'])['Tp'])
+            start.loc[:, 'Dir_mean'] = list(self.storms.groupby(['label']).mean(['dir'])['dir'])
+        
+            self.start = start.drop(['label'], axis=1)
+            print(self.start)
+        return
+    
+    def storm_stats_to_excel(self, name):
+        self.start.to_excel(name)
+        return
+    
+    
+
     
     
                                         
