@@ -18,7 +18,7 @@ for year in years:
             'mean_period_of_wind_waves', 'mean_wave_direction', 'mean_wave_direction_of_first_swell_partition',
             'mean_wave_direction_of_second_swell_partition', 'mean_wave_direction_of_third_swell_partition', 'mean_wave_period',
             'mean_wave_period_of_first_swell_partition', 'mean_wave_period_of_second_swell_partition', 'mean_wave_period_of_third_swell_partition',
-            'mean_zero_crossing_wave_period', 'peak_wave_period', 'significant_height_of_combined_wind_waves_and_swell',
+            'peak_wave_period', 'significant_height_of_combined_wind_waves_and_swell',
             'significant_height_of_total_swell', 'significant_height_of_wind_waves', 'significant_wave_height_of_first_swell_partition',
             'significant_wave_height_of_second_swell_partition', 'significant_wave_height_of_third_swell_partition',
         ],
@@ -61,7 +61,7 @@ for year in years:
     
 #%% Concatenate files
 import xarray as xr
-years = np.arange(1979, 1987).astype(str)
+years = np.arange(1979, 2023).astype(str)
 wave_data = xr.open_dataset(years[0] + '.nc')
 for year in years[1:]:
     ds = xr.open_dataset(year + '.nc')

@@ -2,7 +2,7 @@
 """
 Created on Sun Jun  7 22:01:46 2020
 
-@author: rui
+@author: DISEPLA - FCUL rui / cristina / ana
 """
 
 import pandas as pd
@@ -67,7 +67,7 @@ class WaveTimeSeries:
             # swh - significant height of combined wind waves and swell
             # wsp - Wave spectral peakedness 
             wave_data = ds_sel.to_dataframe()
-            #wave_data = wave_data.droplevel('expver')
+            wave_data = wave_data.droplevel('expver')
             wave_data.dropna(inplace = True)
             
             self.wave_data = wave_data.drop(['latitude', 'longitude'], axis = 1)
@@ -112,6 +112,17 @@ class WaveTimeSeries:
                        else x for x in colum_names]
         colum_names = ['DSp_sw' if x == 'dwps' else x for x in colum_names]
         colum_names = ['DSp_ww' if x == 'dwww' else x for x in colum_names]
+        colum_names = ['HS_sw_p1' if x == 'p140121' else x for x in colum_names]
+        colum_names = ['Dir_sw_p1' if x == 'p140122' else x for x in colum_names]
+        colum_names = ['Tm_sw_p1' if x == 'p140123' else x for x in colum_names]
+        colum_names = ['HS_sw_p2' if x == 'p140124' else x for x in colum_names]
+        colum_names = ['Dir_sw_p2' if x == 'p140125' else x for x in colum_names]
+        colum_names = ['Tm_sw_p2' if x == 'p140126' else x for x in colum_names]
+        colum_names = ['HS_sw_p3' if x == 'p140127' else x for x in colum_names]
+        colum_names = ['Dir_sw_p3' if x == 'p140128' else x for x in colum_names]
+        colum_names = ['Tm_sw_p3' if x == 'p140129' else x for x in colum_names]
+        
+      
         
         self.wave_data.columns = colum_names
        
@@ -242,12 +253,12 @@ class WaveTimeSeries:
         
         return freq, freq_in_columns
     
-    def cut(self, date_start, date_end, copy_wts = True):
+    def cut(self, date_stats, date_end, copy_wts = True):
         if copy_wts:
             wts = copy.copy(self)
         else:
             wts = self
-        wts.wave_data = wts.wave_data.loc[date_start:date_end]
+        wts.wave_data = wts.wave_data.loc[date_stats:date_end]
         return wts
     
     def freq_windrose(self, bin_edges, dir_parameter = 'Dir', parameter = 'Hs', n_dir_bins = None):
@@ -348,4 +359,59 @@ class WaveTimeSeries:
             alpha =  self.wave_data['Dir'] - dir_bottom 
             return k * c * self.wave_data['Hs']**(5/2.) * np.sin(np.radians(2 * alpha)), alpha
       
+    def storm_events(self, Hthreshold, duration):
         
+        wd = self.wave_data
+        wd['label'] = (~wd['Hs'].ge(Hthreshold)).cumsum()
+        st = wd[wd['Hs']>= Hthreshold]
+        st_count = st.value_counts(st['label'])
+
+        #duration -  duration of storm in h
+        self.interval = wd.index.hour[1] - wd.index.hour[0]
+        nevents = int(duration / self.interval)
+        self.ev = st_count[st_count>= nevents]
+        
+        self.storms = st.loc[st['label'].isin(self.ev.index)]
+        print('storms', self.storms)
+        return
+    
+    def storm_events_num (self):
+        print('number of events = ', self.ev.size)
+    
+    def storm_data_to_excel (self, name):
+        self.storms.to_excel(name)
+        return
+    
+    def storm_stats (self):
+        stats = self.storms.drop_duplicates('label')
+        length = (self.storms.groupby(['label']).size()) * self.interval
+        stats = stats.copy()
+        stats.index.names = ['start_time']
+        stats.loc[:,'duration'] = list(length)
+        stats.loc[:, 'Hs_max'] = list(self.storms.groupby(['label']).max(['Hs'])['Hs'])
+        stats.loc[:, 'Hs_mean'] = list(self.storms.groupby(['label']).mean(['Hs'])['Hs'])
+        
+        if self.storms.columns.size == 2:
+            print('Data has only Hs variable')
+            self.stats = stats.drop(['label'], axis=1)
+            print(self.stats)
+            
+        else:
+            stats.loc[:, 'Tp_max'] = list(self.storms.groupby(['label']).max(['Tp'])['Tp'])
+            stats.loc[:, 'TP_mean'] = list(self.storms.groupby(['label']).mean(['Tp'])['Tp'])
+            stats.loc[:, 'Dir_mean'] = list(self.storms.groupby(['label']).mean(['Dir'])['Dir'])
+        
+            self.stats = stats.drop(['label'], axis=1)
+            print(self.stats)
+        return
+    
+    def storm_stats_to_excel(self, name):
+        self.stats.to_excel(name)
+        return
+    
+    
+
+    
+    
+                                        
+                                       

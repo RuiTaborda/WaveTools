@@ -8,7 +8,7 @@ import wavetimeseries as wts
 import numpy as np
 import matplotlib.pyplot as plt
 
-ericeira_wts = wts.WaveTimeSeries(filename = 'C:/Users/Rui/OneDrive - Universidade de Lisboa/mytools/wave\WaveTools/waves_1979_2021.nc', datafile_type = 'era5', lat = 39, long = -9.5, label_style = 'default')
+ericeira_wts = wts.WaveTimeSeries(filename = 'waves_1979_2021.nc', datafile_type = 'era5', lat = 39, long = -9.5, label_style = 'default')
 ericeira_wts.plot_all_timeseries()
 
 ericeira_wts.plot_windrose()
